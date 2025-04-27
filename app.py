@@ -24,13 +24,18 @@ CLASS_NAMES = model.names
 
 def classify_image(image):
     results = model.predict(image)
+    
+    boxes = results[0].boxes
 
-    probs = results[0].probs.data  # Real tensor
-    top1_id = int(probs.argmax())
-    confidence = float(probs[top1_id])
-    label = CLASS_NAMES[top1_id]
+    if boxes is None or len(boxes) == 0:
+        return "No plane detected", 0.0
+
+    cls_id = int(boxes.cls[0].item())  # top detected class
+    confidence = float(boxes.conf[0].item())  # top detection confidence
+    label = CLASS_NAMES[cls_id]
 
     return label, confidence
+
 
 
 
