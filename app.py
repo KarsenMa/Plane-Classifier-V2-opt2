@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 import tempfile
 import cv2
 import os
+import numpy as np
 
 # Configure Streamlit page
 st.set_page_config(page_title="Plane Classifier", page_icon="✈️", layout="centered")
