@@ -25,8 +25,7 @@ CLASS_NAMES = model.names
 def classify_image(image):
     results = model.predict(image)
 
-    probs = results[0].probs  # tensor of probabilities
-
+    probs = results[0].probs.data  # Real tensor
     top1_id = int(probs.argmax())
     confidence = float(probs[top1_id])
     label = CLASS_NAMES[top1_id]
