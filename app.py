@@ -27,11 +27,12 @@ def classify_image(image):
 
     probs = results[0].probs  # tensor of probabilities
 
-    top1_id = int(probs.softmax().argmax())
-    confidence = float(probs.softmax().max())
+    top1_id = int(probs.argmax())
+    confidence = float(probs[top1_id])
     label = CLASS_NAMES[top1_id]
 
     return label, confidence
+
 
 
 # Streamlit UI
