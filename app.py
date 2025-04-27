@@ -135,6 +135,10 @@ if file_option == "Image":
 elif file_option == "Video":
     uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
     if uploaded_video:
+        # 🚨 CLEAR previously processed frames when new video is uploaded
+        st.session_state.processed_frames = None
+        st.session_state.processed_labels = None
+
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
 
