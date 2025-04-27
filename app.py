@@ -47,12 +47,12 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Process video frame by frame and stream frames
-def stream_video(video_path):
+# Process video frame by frame and stream frames (with frame skipping)
+def stream_video(video_path, frame_skip=1):
     cap = cv2.VideoCapture(video_path)
 
-    frames = []  # List to hold processed frames
-    frame_display = st.empty()  # Placeholder to stream frames
+    frames = []
+    frame_display = st.empty()
 
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -60,36 +60,41 @@ def stream_video(video_path):
 
     progress = st.progress(0)
     frame_idx = 0
+    processed_idx = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_img = Image.fromarray(rgb_frame)
+        # Only process every N-th frame
+        if frame_idx % frame_skip == 0:
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb_frame)
 
-        # Predict
-        results = model.predict(pil_img)
-        boxes = results[0].boxes
+            # Predict
+            results = model.predict(pil_img)
+            boxes = results[0].boxes
 
-        # Draw boxes
-        draw = ImageDraw.Draw(pil_img)
-        if boxes is not None and len(boxes) > 0:
-            for i in range(len(boxes.cls)):
-                cls_id = int(boxes.cls[i].item())
-                confidence = float(boxes.conf[i].item())
-                label = CLASS_NAMES.get(cls_id, f"Unknown ({cls_id})")
-                box = boxes.xyxy[i].tolist()
-                draw.rectangle(box, outline="red", width=5)
-                draw.text((box[0], box[1] - 10), f"{label} {confidence*100:.1f}%", fill="red")
+            # Draw boxes
+            draw = ImageDraw.Draw(pil_img)
+            if boxes is not None and len(boxes) > 0:
+                for i in range(len(boxes.cls)):
+                    cls_id = int(boxes.cls[i].item())
+                    confidence = float(boxes.conf[i].item())
+                    label = CLASS_NAMES.get(cls_id, f"Unknown ({cls_id})")
+                    box = boxes.xyxy[i].tolist()
+                    draw.rectangle(box, outline="red", width=5)
+                    draw.text((box[0], box[1] - 10), f"{label} {confidence*100:.1f}%", fill="red")
 
-        # Save processed frame
-        frames.append(pil_img)
+            # Save processed frame
+            frames.append(pil_img)
 
-        # Show frame immediately
-        frame_display.image(pil_img, caption=f"Frame {frame_idx+1}/{frame_count}", use_container_width=True)
-        time.sleep(delay)
+            # Stream frame
+            frame_display.image(pil_img, caption=f"Frame {processed_idx+1}", use_container_width=True)
+            time.sleep(delay * frame_skip)  # Adjust delay for skipping frames
+
+            processed_idx += 1
 
         frame_idx += 1
         progress.progress(min(frame_idx / frame_count, 1.0))
@@ -122,8 +127,11 @@ elif file_option == "Video":
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
 
+        st.markdown("### ⚡ Speed Options")
+        frame_skip = st.slider("Frame skip amount (1 = no skip, higher = faster)", 1, 10, 2)
+
         with st.spinner('Processing video... This may take a while.'):
-            processed_frames = stream_video(tfile.name)
+            processed_frames = stream_video(tfile.name, frame_skip=frame_skip)
 
         st.success("✅ Video processing complete!")
 
@@ -139,7 +147,3 @@ elif file_option == "Video":
                 slideshow_placeholder.image(frame, use_container_width=True)
                 time.sleep(slideshow_speed)
 
-        with st.spinner('Processing video... This may take a while.'):
-            output_video_path = process_video(tfile.name)
-
-        st.video(output_video_path)
