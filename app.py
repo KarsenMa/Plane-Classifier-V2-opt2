@@ -118,8 +118,11 @@ file_option = st.radio("Select input type:", ["Image", "Video"])
 # Initialize session state for video frames and slideshow
 if "processed_frames" not in st.session_state:
     st.session_state.processed_frames = None
+if "processed_labels" not in st.session_state:
     st.session_state.processed_labels = None
+if "slideshow_speed" not in st.session_state:
     st.session_state.slideshow_speed = 0.1
+if "slideshow_requested" not in st.session_state:
     st.session_state.slideshow_requested = False
 
 if file_option == "Image":
@@ -137,11 +140,10 @@ if file_option == "Image":
 elif file_option == "Video":
     uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
     if uploaded_video:
-        # 🚨 CLEAR everything when a new video is uploaded
+        # 🚨 Clear old frames and labels
         st.session_state.processed_frames = None
         st.session_state.processed_labels = None
-        st.session_state.slideshow_speed = 0.1
-        st.session_state.slideshow_requested = False
+        # DO NOT reset slideshow_requested here!
 
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
@@ -157,7 +159,7 @@ elif file_option == "Video":
             st.session_state.processed_labels = labels
             st.success("✅ Video processing complete!")
 
-    # Slideshow section — only show if frames exist
+    # Show slideshow options only after processing
     if (
         st.session_state.processed_frames is not None and
         len(st.session_state.processed_frames) > 0
@@ -170,19 +172,19 @@ elif file_option == "Video":
         if st.button("▶️ Play Slideshow"):
             st.session_state.slideshow_requested = True
 
-    # If slideshow requested, play it
-    if (
-        st.session_state.slideshow_requested and
-        st.session_state.processed_frames is not None and
-        len(st.session_state.processed_frames) > 0
-    ):
-        slideshow_placeholder = st.empty()
-        label_placeholder = st.empty()
+# If slideshow requested, play
+if (
+    st.session_state.get("slideshow_requested", False) and
+    st.session_state.processed_frames is not None and
+    len(st.session_state.processed_frames) > 0
+):
+    slideshow_placeholder = st.empty()
+    label_placeholder = st.empty()
 
-        for frame, label_text in zip(st.session_state.processed_frames, st.session_state.processed_labels):
-            slideshow_placeholder.image(frame, use_container_width=True)
-            label_placeholder.markdown(f"### ✈️ Prediction: **{label_text}**")
-            time.sleep(st.session_state.slideshow_speed)
+    for frame, label_text in zip(st.session_state.processed_frames, st.session_state.processed_labels):
+        slideshow_placeholder.image(frame, use_container_width=True)
+        label_placeholder.markdown(f"### ✈️ Prediction: **{label_text}**")
+        time.sleep(st.session_state.slideshow_speed)
 
-        # After slideshow, reset request
-        st.session_state.slideshow_requested = False
+    # After slideshow, reset
+    st.session_state.slideshow_requested = False
