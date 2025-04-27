@@ -51,8 +51,6 @@ def classify_image(image):
 def stream_video(video_path, frame_skip=1):
     cap = cv2.VideoCapture(video_path)
 
-    frames = []
-    labels = []
     frame_display = st.empty()
     label_display = st.empty()
 
@@ -69,12 +67,10 @@ def stream_video(video_path, frame_skip=1):
         if not ret:
             break
 
-        # Only process every N-th frame
         if frame_idx % frame_skip == 0:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_img = Image.fromarray(rgb_frame)
 
-            # Predict
             results = model.predict(pil_img)
             boxes = results[0].boxes
 
@@ -89,15 +85,10 @@ def stream_video(video_path, frame_skip=1):
                 draw.rectangle(box, outline="red", width=5)
                 draw.text((box[0], box[1] - 10), label_text, fill="red")
 
-            # Save frame and label
-            frames.append(pil_img)
-            labels.append(label_text)
-
-            # Stream frame + label
             frame_display.image(pil_img, caption=f"Frame {processed_idx+1}", use_container_width=True)
             label_display.markdown(f"### ✈️ Prediction: **{label_text}**")
-            time.sleep(delay * frame_skip)
 
+            time.sleep(delay * frame_skip)
             processed_idx += 1
 
         frame_idx += 1
@@ -106,24 +97,12 @@ def stream_video(video_path, frame_skip=1):
     cap.release()
     progress.empty()
 
-    return frames, labels
-
 # --- Streamlit UI ---
 
 st.title("✈️ Plane Classifier")
 st.write("Upload an **image** or a **video** to classify planes!")
 
 file_option = st.radio("Select input type:", ["Image", "Video"])
-
-# Initialize session state for video frames and slideshow
-if "processed_frames" not in st.session_state:
-    st.session_state.processed_frames = None
-if "processed_labels" not in st.session_state:
-    st.session_state.processed_labels = None
-if "slideshow_speed" not in st.session_state:
-    st.session_state.slideshow_speed = 0.1
-if "slideshow_requested" not in st.session_state:
-    st.session_state.slideshow_requested = False
 
 if file_option == "Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
@@ -140,11 +119,6 @@ if file_option == "Image":
 elif file_option == "Video":
     uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
     if uploaded_video:
-        # 🚨 Clear old frames and labels
-        st.session_state.processed_frames = None
-        st.session_state.processed_labels = None
-        # DO NOT reset slideshow_requested here!
-
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
 
@@ -153,38 +127,6 @@ elif file_option == "Video":
 
         if st.button("🚀 Process Video"):
             with st.spinner('Processing video... This may take a while.'):
-                frames, labels = stream_video(tfile.name, frame_skip=frame_skip)
+                stream_video(tfile.name, frame_skip=frame_skip)
 
-            st.session_state.processed_frames = frames
-            st.session_state.processed_labels = labels
             st.success("✅ Video processing complete!")
-
-    # Show slideshow options only after processing
-    if (
-        st.session_state.processed_frames is not None and
-        len(st.session_state.processed_frames) > 0
-    ):
-        st.markdown("### 📽️ Replay Slideshow")
-        st.session_state.slideshow_speed = st.slider(
-            "Slideshow speed (seconds per frame):", 0.01, 1.0, st.session_state.slideshow_speed
-        )
-
-        if st.button("▶️ Play Slideshow"):
-            st.session_state.slideshow_requested = True
-
-# If slideshow requested, play
-if (
-    st.session_state.get("slideshow_requested", False) and
-    st.session_state.processed_frames is not None and
-    len(st.session_state.processed_frames) > 0
-):
-    slideshow_placeholder = st.empty()
-    label_placeholder = st.empty()
-
-    for frame, label_text in zip(st.session_state.processed_frames, st.session_state.processed_labels):
-        slideshow_placeholder.image(frame, use_container_width=True)
-        label_placeholder.markdown(f"### ✈️ Prediction: **{label_text}**")
-        time.sleep(st.session_state.slideshow_speed)
-
-    # After slideshow, reset
-    st.session_state.slideshow_requested = False
