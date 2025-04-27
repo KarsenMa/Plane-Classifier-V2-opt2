@@ -5,6 +5,7 @@ import tempfile
 import cv2
 import os
 import numpy as np
+import time
 
 # Configure Streamlit page
 st.set_page_config(page_title="Plane Classifier", page_icon="✈️", layout="centered")
@@ -46,32 +47,29 @@ def classify_image(image):
 
     return label, confidence, image
 
-# Process video frame by frame
-def process_video(video_path):
-    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+# Process video frame by frame and stream frames
+def stream_video(video_path):
     cap = cv2.VideoCapture(video_path)
 
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(temp_output.name, fourcc, fps, (width, height))
+    frames = []  # List to hold processed frames
+    frame_display = st.empty()  # Placeholder to stream frames
 
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    progress = st.progress(0)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    delay = 1.0 / fps
 
+    progress = st.progress(0)
     frame_idx = 0
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Convert frame (BGR to RGB)
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(rgb_frame)
 
-        # Classify
+        # Predict
         results = model.predict(pil_img)
         boxes = results[0].boxes
 
@@ -86,17 +84,19 @@ def process_video(video_path):
                 draw.rectangle(box, outline="red", width=5)
                 draw.text((box[0], box[1] - 10), f"{label} {confidence*100:.1f}%", fill="red")
 
-        # Convert back to BGR for OpenCV writing
-        output_frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        out.write(output_frame)
+        # Save processed frame
+        frames.append(pil_img)
+
+        # Show frame immediately
+        frame_display.image(pil_img, caption=f"Frame {frame_idx+1}/{frame_count}", use_container_width=True)
+        time.sleep(delay)
 
         frame_idx += 1
         progress.progress(min(frame_idx / frame_count, 1.0))
 
     cap.release()
-    out.release()
     progress.empty()
-    return temp_output.name
+    return frames
 
 # Streamlit UI
 st.title("✈️ Plane Classifier")
@@ -121,6 +121,23 @@ elif file_option == "Video":
     if uploaded_video:
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_video.read())
+
+        with st.spinner('Processing video... This may take a while.'):
+            processed_frames = stream_video(tfile.name)
+
+        st.success("✅ Video processing complete!")
+
+        # Display slideshow
+        st.markdown("### 📽️ Replay Slideshow")
+        slideshow_speed = st.slider("Slideshow speed (seconds per frame):", 0.01, 1.0, 0.1)
+
+        slideshow_placeholder = st.empty()
+        play = st.button("▶️ Play Slideshow")
+
+        if play:
+            for frame in processed_frames:
+                slideshow_placeholder.image(frame, use_container_width=True)
+                time.sleep(slideshow_speed)
 
         with st.spinner('Processing video... This may take a while.'):
             output_video_path = process_video(tfile.name)
