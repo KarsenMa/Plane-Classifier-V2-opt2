@@ -115,7 +115,7 @@ st.write("Upload an **image** or a **video** to classify planes!")
 
 file_option = st.radio("Select input type:", ["Image", "Video"])
 
-# Initialize session state for video frames
+# Initialize session state for video frames and slideshow
 if "processed_frames" not in st.session_state:
     st.session_state.processed_frames = None
     st.session_state.processed_labels = None
@@ -166,16 +166,23 @@ elif file_option == "Video":
         st.session_state.slideshow_speed = st.slider(
             "Slideshow speed (seconds per frame):", 0.01, 1.0, st.session_state.slideshow_speed
         )
-        
+
         if st.button("▶️ Play Slideshow"):
             st.session_state.slideshow_requested = True
 
-        if st.session_state.slideshow_requested:
-            slideshow_placeholder = st.empty()
-            label_placeholder = st.empty()
-            for frame, label_text in zip(st.session_state.processed_frames, st.session_state.processed_labels):
-                slideshow_placeholder.image(frame, use_container_width=True)
-                label_placeholder.markdown(f"### ✈️ Prediction: **{label_text}**")
-                time.sleep(st.session_state.slideshow_speed)
-            st.session_state.slideshow_requested = False
+    # If slideshow requested, play it
+    if (
+        st.session_state.slideshow_requested and
+        st.session_state.processed_frames is not None and
+        len(st.session_state.processed_frames) > 0
+    ):
+        slideshow_placeholder = st.empty()
+        label_placeholder = st.empty()
 
+        for frame, label_text in zip(st.session_state.processed_frames, st.session_state.processed_labels):
+            slideshow_placeholder.image(frame, use_container_width=True)
+            label_placeholder.markdown(f"### ✈️ Prediction: **{label_text}**")
+            time.sleep(st.session_state.slideshow_speed)
+
+        # After slideshow, reset request
+        st.session_state.slideshow_requested = False
